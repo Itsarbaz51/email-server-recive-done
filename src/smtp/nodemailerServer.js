@@ -10,7 +10,6 @@ export const getMailTransporter = async (fullEmail, rawPassword) => {
     where: {
       address: fullEmail,
       domain: {
-        name: domainPart,
         verified: true,
       },
     },
