@@ -1,0 +1,8 @@
+node_modules
+npm-debug.log
+.env
+uploads
+email-server-host.pem
+Dockerfile
+docker-compose.yml
+.dockerignore
