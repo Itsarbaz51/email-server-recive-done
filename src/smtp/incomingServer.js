@@ -2,7 +2,7 @@ import { simpleParser } from "mailparser";
 import Prisma from "../db/db.js";
 import { SMTPServer } from "smtp-server";
 
-export const incomingServer = SMTPServer({
+export const incomingServer = new SMTPServer({
   authOptional: true,
   allowInsecureAuth: true,
 
