@@ -1,6 +1,6 @@
 import nodemailer from "nodemailer";
 import Prisma from "../db/db.js";
-import { decrypt } from "../utils/crypto.js";
+import { decrypt } from "../utils/encryption.js";
 
 export const getMailTransporter = async (fullEmail, rawPassword) => {
   console.log("getMailTransporter called for:", fullEmail);
