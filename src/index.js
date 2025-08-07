@@ -12,7 +12,7 @@ dotenv.config({ path: "./.env" });
     console.log("✅ Database connected");
 
     incomingServer.listen(2525, "0.0.0.0", () => {
-      console.log("🚀 SMTP server running on port 25");
+      console.log("🚀 SMTP server running on port 2525");
     });
 
     app.listen(9000, "0.0.0.0", () => {
