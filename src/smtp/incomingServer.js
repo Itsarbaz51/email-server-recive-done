@@ -1,6 +1,7 @@
 import { simpleParser } from "mailparser";
 import Prisma from "../db/db.js";
 import { SMTPServer } from "smtp-server";
+import { decrypt } from "../utils/encryption.js";
 
 export const incomingServer = new SMTPServer({
   authOptional: false, // Require auth
