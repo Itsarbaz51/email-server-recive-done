@@ -55,36 +55,6 @@ export const incomingServer = new SMTPServer({
   async onRcptTo(address, session, callback) {
     try {
       const to = address?.address?.toLowerCase();
-
-      if (!to || !to.includes("@")) {
-        return callback(new Error("Invalid recipient address format"));
-      }
-
-      const [localPart, domain] = to.split("@");
-      if (!localPart || !domain) {
-        return callback(new Error("Invalid email address structure"));
-      }
-
-      const existingMailbox = await Prisma.mailbox.findFirst({
-        where: {
-          address: to,
-          domain: {
-            verified: true,
-          },
-        },
-        select: {
-          id: true,
-          address: true,
-        },
-      });
-
-      if (!existingMailbox) {
-        console.log(`❌ Recipient not found: ${to}`);
-        return callback(
-          new Error("Recipient mailbox not found or domain not verified")
-        );
-      }
-
       console.log(`✅ Valid recipient: ${to}`);
       callback();
     } catch (err) {
