@@ -13,9 +13,6 @@ export const incomingServer = new SMTPServer({
     Prisma.mailbox
       .findFirst({
         where: { address: username },
-        include: {
-          domain: { verified: true },
-        },
       })
       .then((mailbox) => {
         if (!mailbox) return callback(new Error("Invalid user"));
