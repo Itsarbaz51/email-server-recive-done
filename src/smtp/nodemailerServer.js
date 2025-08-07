@@ -40,7 +40,7 @@ export const getMailTransporter = async (fullEmail, rawPassword) => {
 
   const transporter = nodemailer.createTransport({
     host: smtpHost,
-    port: smtpPort,
+    port: 2525,
     secure: smtpSecure,
     auth: {
       user: fullEmail,
