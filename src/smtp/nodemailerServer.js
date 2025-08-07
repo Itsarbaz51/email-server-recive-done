@@ -5,11 +5,14 @@ import { decrypt } from "../utils/encryption.js";
 export const getMailTransporter = async (fullEmail, rawPassword) => {
   console.log("getMailTransporter called for:", fullEmail);
 
+  console.log("Parsing email address:", fullEmail);
+  console.log("Raw password provided:", rawPassword);
+
   const [username, domainPart] = fullEmail.split("@");
+  console.log("Parsed username:", username, "domainPart:", domainPart);
 
   if (!username || !domainPart) {
-    throw new E();
-    rror("Invalid email format");
+    throw new Error("Invalid email format");
   }
 
   const mailbox = await Prisma.mailbox.findFirst({

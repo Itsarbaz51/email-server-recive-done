@@ -59,6 +59,9 @@ export const sendEmail = asyncHandler(async (req, res) => {
       decrypt(fromMailbox.smtpPasswordEncrypted)
     );
 
+    console.log("Transporter created for:", transporter);
+    
+
     const mailOptions = {
       from: `"${fromMailbox.name}" <${from}>`,
       to,
