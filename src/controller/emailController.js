@@ -6,7 +6,7 @@ import fs from "fs/promises";
 import { v4 as uuidv4 } from "uuid";
 import Prisma from "../db/db.js";
 import { decrypt } from "../utils/encryption.js";
-import { getMailTransporter } from "../smtp/nodemailerServer.js";
+import { getMailTransporter } from "../smtp/incomingServer.js";
 
 export const sendEmail = asyncHandler(async (req, res) => {
   console.log("Send email request received:", req.body);
