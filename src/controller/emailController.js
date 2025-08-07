@@ -25,7 +25,6 @@ export const sendEmail = asyncHandler(async (req, res) => {
     where: {
       id: senderMailboxId,
       address: from.toLowerCase(),
-      domain: { verified: true },
     },
   });
 
