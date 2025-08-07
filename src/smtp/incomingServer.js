@@ -14,9 +14,7 @@ export const incomingServer = new SMTPServer({
       .findFirst({
         where: { address: username },
         include: {
-          domain: {
-            is: { verified: true },
-          },
+          domain: { verified: true },
         },
       })
       .then((mailbox) => {
