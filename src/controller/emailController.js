@@ -69,12 +69,8 @@ export const sendEmail = asyncHandler(async (req, res) => {
       // attachments,
     };
 
-    try {
-      const info = await transporter.sendMail(mailOptions);
-      console.log("Email sent:", info);
-    } catch (error) {
-      console.error("Send failed:", error);
-    }
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent:", info);
 
     // Store in database
     const toMailbox = await Prisma.mailbox.findFirst({
