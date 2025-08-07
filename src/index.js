@@ -2,7 +2,6 @@ import dotenv from "dotenv";
 import app from "./app.js";
 import Prisma from "./db/db.js";
 import { incomingServer } from "./smtp/incomingServer.js";
-import { outgoingServer } from "./smtp/outgoingServer.js";
 
 dotenv.config({ path: "./.env" });
 
@@ -11,10 +10,6 @@ dotenv.config({ path: "./.env" });
     console.log("Connecting to database...");
     await Prisma.$connect();
     console.log("✅ Database connected");
-
-    outgoingServer.listen(587, "0.0.0.0", () => {
-      console.log("🚀 Outgoing SMTP server running on port 587");
-    });
 
     incomingServer.listen(25, "0.0.0.0", () => {
       console.log("🚀 SMTP server running on port 25");
