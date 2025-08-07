@@ -49,6 +49,9 @@ export const getMailTransporter = async (fullEmail, rawPassword) => {
     tls: {
       rejectUnauthorized: false,
     },
+
+    logger: true, // Add this
+    debug: true,
   });
 
   try {

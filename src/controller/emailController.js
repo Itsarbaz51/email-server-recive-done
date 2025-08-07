@@ -60,18 +60,21 @@ export const sendEmail = asyncHandler(async (req, res) => {
     );
 
     console.log("Transporter created for:", transporter);
-    
 
     const mailOptions = {
-      from: `"${fromMailbox.name}" <${from}>`,
+      from: `"${fromMailbox.name || "No Name"}" <${from}>`,
       to,
       subject,
       html: body,
-      attachments,
+      // attachments,
     };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent successfully:", info.messageId);
+    try {
+      const info = await transporter.sendMail(mailOptions);
+      console.log("Email sent:", info);
+    } catch (error) {
+      console.error("Send failed:", error);
+    }
 
     // Store in database
     const toMailbox = await Prisma.mailbox.findFirst({
