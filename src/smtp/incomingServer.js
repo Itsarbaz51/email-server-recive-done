@@ -15,7 +15,7 @@ export const incomingServer = new SMTPServer({
         where: { address: username },
         include: {
           domain: {
-            where: { verified: true },
+            is: { verified: true },
           },
         },
       })
