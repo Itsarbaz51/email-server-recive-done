@@ -46,21 +46,13 @@ export const getMailTransporter = async (fullEmail, rawPassword) => {
       user: fullEmail,
       pass: rawPassword || decrypt(mailbox.smtpPasswordEncrypted),
     },
-    dkim: {
-      domainName,
-      keySelector: dkimSelector || "dkim",
-      privateKey: dkimPrivateKey,
-    },
     tls: {
       rejectUnauthorized: false,
     },
-    pool: false,
-    maxConnections: 1,
-    maxMessages: 1,
   });
 
   try {
-    console.log("Verifying transporter...");
+    console.log("Verifying transporter...", transporter);
     await transporter.verify();
     console.log("✅ Transporter verified for", fullEmail);
     return transporter;
