@@ -3,8 +3,37 @@ import Prisma from "../db/db.js";
 import { SMTPServer } from "smtp-server";
 
 export const incomingServer = new SMTPServer({
-  authOptional: true,
-  allowInsecureAuth: true,
+  authOptional: false, // Require auth
+  onAuth(auth, session, callback) {
+    console.log("auh", auth);
+
+    const { username, password } = auth;
+
+    // Example: look up mailbox from database
+    Prisma.mailbox
+      .findFirst({
+        where: { address: username },
+        include: {
+          domain: {
+            where: { verified: true },
+          },
+        },
+      })
+      .then((mailbox) => {
+        if (!mailbox) return callback(new Error("Invalid user"));
+
+        const decryptedPass = decrypt(mailbox.smtpPasswordEncrypted);
+        if (password !== decryptedPass) {
+          return callback(new Error("Invalid password"));
+        }
+
+        return callback(null, { user: mailbox });
+      })
+      .catch((err) => {
+        console.error("Auth error", err);
+        return callback(new Error("Authentication failed"));
+      });
+  },
 
   onConnect(session, callback) {
     console.log("📡 Client connected", session.id);
