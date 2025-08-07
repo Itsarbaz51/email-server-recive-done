@@ -71,10 +71,7 @@ export const incomingServer = new SMTPServer({
         where: {
           address: to,
           domain: {
-            is: {
-              name: domain,
-              verified: true,
-            },
+            verified: true,
           },
         },
         select: {
