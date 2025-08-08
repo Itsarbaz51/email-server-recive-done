@@ -15,7 +15,7 @@ export const addDomain = asyncHandler(async (req, res) => {
   }
 
   // Check if domain already exists (compound unique)
-  const exists = await prisma.domain.findUnique({
+  const exists = await Prisma.domain.findUnique({
     where: {
       name_adminId: {
         name,
@@ -35,7 +35,7 @@ export const addDomain = asyncHandler(async (req, res) => {
   }
 
   // Create domain in your DB
-  const createdDomain = await prisma.domain.create({
+  const createdDomain = await Prisma.domain.create({
     data: {
       name,
       adminId: userId, // or userId: userId depending on schema
@@ -67,7 +67,7 @@ export const addDomain = asyncHandler(async (req, res) => {
   const allRecords = [mxRecord, ...sendgridDNS];
 
   // Save DNS records to DB
-  await prisma.dnsRecord.createMany({
+  await Prisma.dnsRecord.createMany({
     data: allRecords,
   });
 
