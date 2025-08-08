@@ -148,6 +148,8 @@ async function getSendGridDNSRecords(domain) {
         },
       }
     );
+    console.log("response", response);
+
     return response.data;
   } catch (err) {
     console.error("SendGrid DNS fetch failed", err.response?.data || err);
