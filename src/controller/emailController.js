@@ -4,7 +4,6 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import Prisma from "../db/db.js";
 import { sendViaSendGrid } from "../smtp/sendgridService.js";
 
-
 export const sendEmail = asyncHandler(async (req, res) => {
   const { from, to, subject, body } = req.body;
   const senderMailboxId = req.mailbox?.id;
@@ -32,6 +31,7 @@ export const sendEmail = asyncHandler(async (req, res) => {
   }
 
   const fromName = fromMailbox.name || "No Name";
+  console.log(fromName, "is sending an email");
 
   try {
     // ✅ Send via SendGrid
@@ -65,15 +65,17 @@ export const sendEmail = asyncHandler(async (req, res) => {
       });
     }
 
-    return res.status(201).json(
-      new ApiResponse(201, "Email sent successfully")
-    );
+    return res
+      .status(201)
+      .json(new ApiResponse(201, "Email sent successfully"));
   } catch (error) {
-    console.error("SendGrid send failed:", error.response?.body || error.message);
+    console.error(
+      "SendGrid send failed:",
+      error.response?.body || error.message
+    );
     throw new ApiError(500, `SendGrid send failed: ${error.message}`);
   }
 });
-
 
 export const getMessages = asyncHandler(async (req, res) => {
   const { mailboxId } = req.params;
