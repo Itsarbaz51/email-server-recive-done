@@ -104,6 +104,8 @@ export const verifyDomain = asyncHandler(async (req, res) => {
 
   // ✅ Step: Also validate in SendGrid API
   const sendgridRes = await validateDomain(domain.sendgridDomainId);
+  console.log("sendgridRes",sendgridRes);
+  
   if (!sendgridRes.valid) allValid = false;
 
   if (allValid) {
