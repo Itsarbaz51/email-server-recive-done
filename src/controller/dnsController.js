@@ -9,14 +9,13 @@ export const addDomain = asyncHandler(async (req, res) => {
   const { name } = req.body;
   const userId = req.user.id;
   console.log(`Adding domain: ${name} for user: ${userId}`);
-  
 
   if (!name || !userId) {
     throw new ApiError(400, "Domain name and user ID required");
   }
 
   // Check for existing domain
-  const exists = await Prisma.domain.findUnique({ where: { name } });
+  const exists = await Prisma.domain.findUnique({ where: { name: name } });
   if (exists) throw new ApiError(409, "Domain already exists");
 
   // Step 1: Fetch SendGrid DNS records
@@ -117,7 +116,9 @@ export async function verifyDnsRecord(record) {
     }
 
     if (record.type === "TXT") {
-      const flattened = result.flat().map((r) => (Array.isArray(r) ? r.join("") : r));
+      const flattened = result
+        .flat()
+        .map((r) => (Array.isArray(r) ? r.join("") : r));
       return flattened.includes(record.value);
     }
 
