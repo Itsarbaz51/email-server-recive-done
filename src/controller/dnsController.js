@@ -90,11 +90,12 @@ export const verifyDomain = asyncHandler(async (req, res) => {
 
   if (!domain) throw new ApiError(404, "Domain not found");
 
-  let allValid = true;
+  let allDnsValid = true;
 
+  // ✅ Step 1: Locally verify each DNS record
   for (const record of domain.dnsRecords) {
     const isValid = await verifyDnsRecord(record);
-    if (!isValid) allValid = false;
+    if (!isValid) allDnsValid = false;
 
     await Prisma.dnsRecord.update({
       where: { id: record.id },
@@ -102,22 +103,35 @@ export const verifyDomain = asyncHandler(async (req, res) => {
     });
   }
 
-  // ✅ Step: Also validate in SendGrid API
+  // ✅ Step 2: Validate domain in SendGrid API
   const sendgridRes = await validateDomain(domain.sendgridDomainId);
-  console.log("sendgridRes",sendgridRes);
-  
-  if (!sendgridRes.valid) allValid = false;
+  console.log("sendgridRes", sendgridRes);
 
-  if (allValid) {
-    await Prisma.domain.update({
-      where: { id: domain.id },
-      data: { verified: true },
-    });
-  }
+  const sendgridValid = sendgridRes.valid;
+  const sendgridDetails = sendgridRes.validation_results || {};
 
+  // ✅ Step 3: Determine final domain verification status
+  const allValid = allDnsValid && sendgridValid;
+
+  // ✅ Step 4: Update domain's verified status in DB
+  await Prisma.domain.update({
+    where: { id: domain.id },
+    data: { verified: allValid },
+  });
+
+  // ✅ Step 5: Send detailed response
   return res.status(200).json(
     new ApiResponse(200, "Domain DNS records verified", {
       domainVerified: allValid,
+      dnsValidation: domain.dnsRecords.map((r) => ({
+        name: r.name,
+        type: r.type,
+        verified: r.verified,
+      })),
+      sendgridValidation: {
+        overallValid: sendgridValid,
+        details: sendgridDetails,
+      },
     })
   );
 });
