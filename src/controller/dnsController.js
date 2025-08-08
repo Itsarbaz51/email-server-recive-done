@@ -34,6 +34,16 @@ export const addDomain = asyncHandler(async (req, res) => {
     throw new ApiError(500, "Failed to get DNS records from SendGrid");
   }
 
+  // Create domain in your DB
+  const createdDomain = await Prisma.domain.create({
+    data: {
+      name,
+      adminId: userId, // or userId: userId depending on schema
+      sendgridDomainId: sendgridData.id.toString(),
+      verified: false,
+    },
+  });
+
   // Convert SendGrid DNS object into array of DNS records
   const sendgridDNS = Object.entries(sendgridData.dns).map(([key, value]) => ({
     type: value?.type || "CNAME",
@@ -55,16 +65,6 @@ export const addDomain = asyncHandler(async (req, res) => {
   };
 
   const allRecords = [mxRecord, ...sendgridDNS];
-
-  // Create domain in your DB
-  const createdDomain = await Prisma.domain.create({
-    data: {
-      name,
-      adminId: userId, // or userId: userId depending on schema
-      sendgridDomainId: sendgridData.id.toString(),
-      verified: false,
-    },
-  });
 
   // Save DNS records to DB
   await Prisma.dnsRecord.createMany({
