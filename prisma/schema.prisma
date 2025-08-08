@@ -20,18 +20,19 @@ model User {
 }
 
 model Domain {
-  id             String      @id @default(uuid())
-  name           String
-  verified       Boolean     @default(false)
-  dkimPrivateKey String?     @db.LongText
-  dkimPublicKey  String?     @db.LongText
-  dkimSelector   String?     @default("dkim")
-  adminId        String
-  admin          User        @relation("AdminDomain", fields: [adminId], references: [id])
-  dnsRecords     DnsRecord[]
-  mailboxes      Mailbox[]
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id               String      @id @default(uuid())
+  name             String
+  sendgridDomainId String?     @unique
+  verified         Boolean     @default(false)
+  dkimPrivateKey   String?     @db.LongText
+  dkimPublicKey    String?     @db.LongText
+  dkimSelector     String?     @default("dkim")
+  adminId          String
+  admin            User        @relation("AdminDomain", fields: [adminId], references: [id])
+  dnsRecords       DnsRecord[]
+  mailboxes        Mailbox[]
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
   @@unique([name, adminId])
   @@index([adminId])
