@@ -137,6 +137,14 @@ export const verifyDomain = asyncHandler(async (req, res) => {
     });
   }
 
+  if (domain.verified == -false) {
+    // ✅ Step 3: Update domain status
+    await Prisma.domain.update({
+      where: { id: domain.id },
+      data: { verified: true },
+    });
+  }
+
   return res.status(200).json(
     new ApiResponse(200, "Domain DNS records verified", {
       domainVerified: allValid,
