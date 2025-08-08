@@ -90,12 +90,12 @@ export const verifyDomain = asyncHandler(async (req, res) => {
 
   if (!domain) throw new ApiError(404, "Domain not found");
 
-  let allDnsValid = true;
+  let allValid = true;
 
-  // ✅ Step 1: Locally verify each DNS record
+  // ✅ Step 1: Local DNS verification
   for (const record of domain.dnsRecords) {
     const isValid = await verifyDnsRecord(record);
-    if (!isValid) allDnsValid = false;
+    if (!isValid) allValid = false;
 
     await Prisma.dnsRecord.update({
       where: { id: record.id },
@@ -103,35 +103,43 @@ export const verifyDomain = asyncHandler(async (req, res) => {
     });
   }
 
-  // ✅ Step 2: Validate domain in SendGrid API
+  // ✅ Step 2: SendGrid validation
   const sendgridRes = await validateDomain(domain.sendgridDomainId);
   console.log("sendgridRes", sendgridRes);
 
-  const sendgridValid = sendgridRes.valid;
-  const sendgridDetails = sendgridRes.validation_results || {};
+  if (sendgridRes && sendgridRes.validation_results) {
+    const { dkim1, dkim2, mail_cname } = sendgridRes.validation_results;
 
-  // ✅ Step 3: Determine final domain verification status
-  const allValid = allDnsValid && sendgridValid;
+    const sendgridResults = [
+      { key: "s1._domainkey", result: dkim1 },
+      { key: "s2._domainkey", result: dkim2 },
+      { key: "em", result: mail_cname },
+    ];
 
-  // ✅ Step 4: Update domain's verified status in DB
-  await Prisma.domain.update({
-    where: { id: domain.id },
-    data: { verified: allValid },
-  });
+    for (const record of domain.dnsRecords) {
+      const matching = sendgridResults.find((sg) =>
+        record.name.includes(sg.key)
+      );
+      if (matching) {
+        await Prisma.dnsRecord.update({
+          where: { id: record.id },
+          data: { verified: matching.result.valid },
+        });
+        if (!matching.result.valid) allValid = false;
+      }
+    }
+  }
 
-  // ✅ Step 5: Send detailed response
+  if (allValid && sendgridRes?.valid) {
+    await Prisma.domain.update({
+      where: { id: domain.id },
+      data: { verified: true },
+    });
+  }
+
   return res.status(200).json(
     new ApiResponse(200, "Domain DNS records verified", {
       domainVerified: allValid,
-      dnsValidation: domain.dnsRecords.map((r) => ({
-        name: r.name,
-        type: r.type,
-        verified: r.verified,
-      })),
-      sendgridValidation: {
-        overallValid: sendgridValid,
-        details: sendgridDetails,
-      },
     })
   );
 });
