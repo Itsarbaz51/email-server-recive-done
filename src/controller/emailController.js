@@ -2,6 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import Prisma from "../db/db.js";
+import { sendViaSendGrid } from "../smtp/sendgridService.js";
 
 
 export const sendEmail = asyncHandler(async (req, res) => {

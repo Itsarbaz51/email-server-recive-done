@@ -35,3 +35,28 @@ export async function validateDomain(domainId) {
   return res.data;
 }
 
+export async function sendViaSendGrid({ from, to, subject, html }) {
+  const data = {
+    personalizations: [
+      {
+        to: Array.isArray(to) ? to.map(email => ({ email })) : [{ email: to }],
+        subject,
+      },
+    ],
+    from, // { email, name }
+    content: [
+      {
+        type: "text/html",
+        value: html,
+      },
+    ],
+  };
+
+  const res = await axios.post(
+    `${SENDGRID_API}/mail/send`,
+    data,
+    { headers: HEADERS }
+  );
+
+  return res.data;
+}
