@@ -28,7 +28,7 @@ export const addDomain = asyncHandler(async (req, res) => {
   const domain = await Prisma.domain.create({
     data: {
       name,
-      userId,
+      adminId: userId,
       sendgridDomainId: sendgridData.id.toString(),
       verified: false,
     },
