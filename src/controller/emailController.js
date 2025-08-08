@@ -32,7 +32,7 @@ export const sendEmail = asyncHandler(async (req, res) => {
 
   console.log(fromMailbox);
   
-  const fromName = fromMailbox.name || "No Name";
+  const fromName = fromMailbox.address || "No Name";
   console.log(fromName, "is sending an email");
 
   try {
