@@ -39,11 +39,16 @@ export async function sendViaSendGrid({ from, to, subject, html }) {
   const data = {
     personalizations: [
       {
-        to: Array.isArray(to) ? to.map(email => ({ email })) : [{ email: to }],
+        to: Array.isArray(to)
+          ? to.map((email) => ({ email }))
+          : [{ email: to }],
         subject,
       },
     ],
-    from, // { email, name }
+    from: {
+      email: from.email,
+      name: from.name || "No Name",
+    },
     content: [
       {
         type: "text/html",
@@ -52,11 +57,9 @@ export async function sendViaSendGrid({ from, to, subject, html }) {
     ],
   };
 
-  const res = await axios.post(
-    `${SENDGRID_API}/mail/send`,
-    data,
-    { headers: HEADERS }
-  );
+  const res = await axios.post(`${SENDGRID_API}/mail/send`, data, {
+    headers: HEADERS,
+  });
 
   return res.data;
 }
