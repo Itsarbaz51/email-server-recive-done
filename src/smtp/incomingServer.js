@@ -5,8 +5,7 @@ import { decrypt } from "../utils/encryption.js";
 
 export const incomingServer = new SMTPServer({
   authOptional: true, // Allow unauthenticated connections
-  secure: false, // Use STARTTLS for security
-  allowHalfOpen: true, // Allow half-open connections
+  allowInsecureAuth: true, // Allow half-open connections
 
   onConnect(session, callback) {
     console.log("📡 Client connected", session.id);
