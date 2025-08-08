@@ -1,226 +1,150 @@
 import dns from "dns/promises";
-import crypto from "crypto";
+import axios from "axios";
 import Prisma from "../db/db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
 
-const DKIM_SELECTOR = "dkim";
+export const addDomain = asyncHandler(async (req, res) => {
+  const { name } = req.body;
+  const userId = req.user.id;
 
-const generateDKIMKeys = () => {
-  const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-    publicKeyEncoding: { type: "spki", format: "pem" },
-    privateKeyEncoding: { type: "pkcs8", format: "pem" },
-  });
-
-  const cleanedPublicKey = publicKey
-    .replace(/-----(BEGIN|END) PUBLIC KEY-----/g, "")
-    .replace(/\s+/g, "")
-    .trim();
-
-  return {
-    privateKey,
-    publicKey: cleanedPublicKey,
-  };
-};
-
-const normalizeTxt = (txt) =>
-  txt.replace(/"/g, "").replace(/\s+/g, "").trim().toLowerCase();
-
-// =================== DNS RECORD GENERATION ===================
-
-export const generateDNSRecords = asyncHandler(async (req, res) => {
-  const { domain } = req.body;
-  const currentUserId = req.user.id;
-
-  if (!domain) ApiError.send(res, 400, "Domain is required");
-
-  const existingDomain = await Prisma.domain.findFirst({
-    where: { name: domain, adminId: currentUserId },
-    include: { dnsRecords: true },
-  });
-
-  if (existingDomain) {
-    return ApiError.send(res, 400, "Domain already exists");
+  if (!name || !userId) {
+    throw new ApiError(400, "Domain name and user ID required");
   }
 
-  const dkimKeys = generateDKIMKeys();
+  // Check for existing domain
+  const exists = await Prisma.domain.findUnique({ where: { name } });
+  if (exists) throw new ApiError(409, "Domain already exists");
 
-  const newDomain = await Prisma.domain.create({
+  // Step 1: Fetch SendGrid DNS records
+  const sendgridData = await getSendGridDNSRecords(name);
+
+  // Step 2: Create domain in DB
+  const domain = await Prisma.domain.create({
     data: {
-      name: domain,
-      adminId: currentUserId,
-      dkimPrivateKey: dkimKeys.privateKey,
-      dkimPublicKey: dkimKeys.publicKey,
-      dkimSelector: DKIM_SELECTOR,
+      name,
+      userId,
+      sendgridDomainId: sendgridData.id.toString(),
+      verified: false,
     },
   });
 
-  const recordsToCreate = [
-    {
-      type: "A",
-      name: "mail",
-      value: process.env.SERVER_IP,
-      domainId: newDomain.id,
-    },
+  // Step 3: Generate all DNS records (MX + SendGrid DKIM + CNAME + SPF)
+  const dnsRecords = [
     {
       type: "MX",
-      name: "@",
-      value: process.env.MAIL_HOST,
+      name: name,
+      value: "mail.yoursaas.com",
       priority: 10,
-      domainId: newDomain.id,
+      domainId: domain.id,
     },
-    {
-      type: "TXT",
-      name: "@",
-      value: `v=spf1 a:${process.env.MAIL_HOST} mx ~all`,
-      domainId: newDomain.id,
-    },
-    {
-      type: "TXT",
-      name: `${DKIM_SELECTOR}._domainkey`,
-      value: `v=DKIM1; k=rsa; p=${dkimKeys.publicKey}`,
-      domainId: newDomain.id,
-    },
-    {
-      type: "TXT",
-      name: "_dmarc",
-      value: `v=DMARC1; p=quarantine; sp=quarantine; adkim=s; aspf=s; rua=mailto:dmarc@${domain}`,
-      domainId: newDomain.id,
-    },
+    ...sendgridData.dns.map((r) => ({
+      type: r.record_type,
+      name: r.host,
+      value: r.data,
+      priority: r.priority || null,
+      domainId: domain.id,
+    })),
   ];
 
-  const createdRecords = await Promise.all(
-    recordsToCreate.map((record) => Prisma.dnsRecord.create({ data: record }))
-  );
+  // Step 4: Save DNS records
+  await Prisma.dnsRecord.createMany({ data: dnsRecords });
 
-  return res.json(
-    new ApiResponse(200, "DNS records generated", {
-      domain: newDomain,
-      dnsRecords: createdRecords.map((r) => ({
-        id: r.id,
-        type: r.type,
-        name: r.name === "@" ? domain : `${r.name}.${domain}`,
-        value: r.value,
-        priority: r.priority,
-        ttl: r.ttl,
-      })),
+  return res.status(201).json(
+    new ApiResponse(201, "Domain added and DNS records saved", {
+      domain,
+      dnsRecords,
     })
   );
 });
 
-// =================== DNS RECORD VERIFICATION ===================
+export const verifyDomain = asyncHandler(async (req, res) => {
+  const { domainId } = req.params;
 
-const verifyDNSRecord = async (domainId, recordType) => {
   const domain = await Prisma.domain.findUnique({
     where: { id: domainId },
-    include: {
-      dnsRecords: { where: { type: recordType } },
-    },
+    include: { dnsRecords: true },
   });
 
   if (!domain) throw new ApiError(404, "Domain not found");
-  if (!domain.dnsRecords.length)
-    throw new ApiError(404, `No ${recordType} records found`);
 
-  const results = [];
+  let allValid = true;
 
   for (const record of domain.dnsRecords) {
-    const lookupName =
-      record.name === "@" ? domain.name : `${record.name}.${domain.name}`;
+    const isValid = await verifyDnsRecord(record);
+    if (!isValid) allValid = false;
 
-    try {
-      let rawRecords = [];
-
-      if (recordType === "MX") {
-        const mxRecords = await dns.resolveMx(lookupName);
-        rawRecords = mxRecords.map((r) => r.exchange.trim());
-      } else if (recordType === "TXT") {
-        const txtRecords = await dns.resolveTxt(lookupName);
-        rawRecords = txtRecords.map((r) => r.join("").trim());
-      }
-
-      const expected = record.value.trim();
-      const matched = rawRecords.some((r) =>
-        recordType === "TXT"
-          ? normalizeTxt(r) === normalizeTxt(expected)
-          : r === expected
-      );
-
-      if (!matched && rawRecords.length > 0) {
-        await Prisma.dnsRecord.update({
-          where: { id: record.id },
-          data: { value: rawRecords[0] },
-        });
-      }
-
-      results.push({
-        matched,
-        expected,
-        found: rawRecords,
-        record,
-        lookupName,
-      });
-    } catch (err) {
-      results.push({
-        matched: false,
-        error: err.message,
-        record,
-        lookupName,
-      });
-    }
-  }
-
-  return results;
-};
-
-export const verifyDnsHandler = asyncHandler(async (req, res) => {
-  const { id: domainId } = req.params;
-  const type = req.query.type?.toUpperCase();
-
-  if (!domainId) ApiError.send(res, 400, "Domain ID is required");
-
-  try {
-    if (type) {
-      const results = await verifyDNSRecord(domainId, type);
-      const allMatched = results.every((r) => r.matched);
-
-      return res.json(
-        new ApiResponse(
-          allMatched ? 200 : 400,
-          allMatched
-            ? `${type} record(s) verified`
-            : `${type} record(s) mismatch or DNS issue`,
-          { results }
-        )
-      );
-    }
-
-    const types = ["MX", "TXT"];
-    const allResults = await Promise.all(
-      types.map((t) => verifyDNSRecord(domainId, t))
-    );
-
-    const flatResults = allResults.flat();
-    const allVerified = flatResults.every((r) => r.matched);
-
-    const domain = await Prisma.domain.update({
-      where: { id: domainId },
-      data: { verified: allVerified },
-      select: { name: true, verified: true },
+    await Prisma.dnsRecord.update({
+      where: { id: record.id },
+      data: { verified: isValid },
     });
-
-    return res.json(
-      new ApiResponse(
-        allVerified ? 200 : 400,
-        allVerified
-          ? "All DNS records verified"
-          : "Some DNS records failed verification",
-        { domain, results: flatResults }
-      )
-    );
-  } catch (error) {
-    return ApiError.send(res, 500, `Verification failed: ${error.message}`);
   }
+
+  // ✅ Step: Also validate in SendGrid API
+  if (domain.sendgridDomainId) {
+    try {
+      const sendgridRes = await validateDomain(domain.sendgridDomainId);
+      if (!sendgridRes.valid) allValid = false;
+    } catch (err) {
+      console.error("SendGrid validation failed", err.response?.data || err);
+      allValid = false;
+    }
+  }
+
+  if (allValid) {
+    await Prisma.domain.update({
+      where: { id: domain.id },
+      data: { verified: true },
+    });
+  }
+
+  return res.status(200).json(
+    new ApiResponse(200, "Domain DNS records verified", {
+      domainVerified: allValid,
+    })
+  );
 });
+
+export async function verifyDnsRecord(record) {
+  try {
+    const result = await dns.resolve(record.name, record.type);
+
+    if (record.type === "MX") {
+      return result.some((r) => r.exchange === record.value);
+    }
+
+    if (record.type === "TXT") {
+      const flattened = result.flat().map((r) => (Array.isArray(r) ? r.join("") : r));
+      return flattened.includes(record.value);
+    }
+
+    return result.includes(record.value);
+  } catch (error) {
+    return false;
+  }
+}
+
+async function getSendGridDNSRecords(domain) {
+  try {
+    const response = await axios.post(
+      "https://api.sendgrid.com/v3/whitelabel/domains",
+      {
+        domain,
+        automatic_security: true,
+        custom_spf: true,
+        default: false,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+    return response.data;
+  } catch (err) {
+    console.error("SendGrid DNS fetch failed", err.response?.data || err);
+    throw new ApiError(500, "Failed to fetch SendGrid DNS records");
+  }
+}

@@ -11,7 +11,7 @@ dotenv.config({ path: "./.env" });
     await Prisma.$connect();
     console.log("✅ Database connected");
 
-    incomingServer.listen(587, "0.0.0.0", () => {
+    incomingServer.listen(25, "0.0.0.0", () => {
       console.log("🚀 SMTP server running on port 25");
     });
 

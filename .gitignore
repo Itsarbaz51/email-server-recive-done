@@ -6,3 +6,5 @@ email-server-host.pem
 Dockerfile
 docker-compose.yml
 .dockerignore
+migrations
+README.md

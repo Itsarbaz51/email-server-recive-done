@@ -4,32 +4,9 @@ import { SMTPServer } from "smtp-server";
 import { decrypt } from "../utils/encryption.js";
 
 export const incomingServer = new SMTPServer({
-  authOptional: false, // Require auth
-  onAuth(auth, session, callback) {
-    console.log("auh", auth);
+  authOptional: false, 
 
-    const { username, password } = auth;
-
-    // Example: look up mailbox from database
-    Prisma.mailbox
-      .findFirst({
-        where: { address: username },
-      })
-      .then((mailbox) => {
-        if (!mailbox) return callback(new Error("Invalid user"));
-
-        const decryptedPass = decrypt(mailbox.smtpPasswordEncrypted);
-        if (password !== decryptedPass) {
-          return callback(new Error("Invalid password"));
-        }
-
-        return callback(null, { user: mailbox });
-      })
-      .catch((err) => {
-        console.error("Auth error", err);
-        return callback(new Error("Authentication failed"));
-      });
-  },
+  
 
   onConnect(session, callback) {
     console.log("📡 Client connected", session.id);
