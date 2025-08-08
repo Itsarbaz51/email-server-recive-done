@@ -8,6 +8,8 @@ import { ApiError } from "../utils/ApiError.js";
 export const addDomain = asyncHandler(async (req, res) => {
   const { name } = req.body;
   const userId = req.user.id;
+  console.log(`Adding domain: ${name} for user: ${userId}`);
+  
 
   if (!name || !userId) {
     throw new ApiError(400, "Domain name and user ID required");
