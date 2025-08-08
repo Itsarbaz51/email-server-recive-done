@@ -14,51 +14,67 @@ export const addDomain = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Domain name and user ID required");
   }
 
-  // Check for existing domain
-  const exists = await Prisma.domain.findFirst({
-    where: { name, adminId: userId },
+  // Check if domain already exists (compound unique)
+  const exists = await prisma.domain.findUnique({
+    where: {
+      name_adminId: {
+        name,
+        adminId: userId,
+      },
+    },
   });
 
-  if (exists) throw new ApiError(409, "Domain already exists");
+  if (exists) {
+    throw new ApiError(409, "Domain already exists");
+  }
 
-  // Step 1: Fetch SendGrid DNS records
+  // Create domain in SendGrid and get DNS records
   const sendgridData = await getSendGridDNSRecords(name);
+  if (!sendgridData?.id || !sendgridData?.dns) {
+    throw new ApiError(500, "Failed to get DNS records from SendGrid");
+  }
 
-  // Step 2: Create domain in DB
-  const domain = await Prisma.domain.create({
+  // Create domain in your DB
+  const createdDomain = await prisma.domain.create({
     data: {
       name,
-      adminId: userId,
+      adminId: userId, // or userId: userId depending on schema
       sendgridDomainId: sendgridData.id.toString(),
       verified: false,
     },
   });
 
-  // Step 3: Generate all DNS records (MX + SendGrid DKIM + CNAME + SPF)
-  const dnsRecords = [
-    {
-      type: "MX",
-      name: name,
-      value: "mail.yoursaas.com",
-      priority: 10,
-      domainId: domain.id,
-    },
-    ...sendgridData.dns.map((r) => ({
-      type: r.record_type,
-      name: r.host,
-      value: r.data,
-      priority: r.priority || null,
-      domainId: domain.id,
-    })),
-  ];
+  // Convert SendGrid DNS object into array of DNS records
+  const sendgridDNS = Object.entries(sendgridData.dns).map(([key, value]) => ({
+    type: value?.type || "CNAME",
+    name: value?.host || "",
+    value: value?.data || "",
+    ttl: value?.ttl || 3600,
+    priority: null,
+    domainId: createdDomain.id,
+  }));
 
-  // Step 4: Save DNS records
-  await Prisma.dnsRecord.createMany({ data: dnsRecords });
+  // Add custom MX record for your platform
+  const mxRecord = {
+    type: "MX",
+    name: name,
+    value: "mail.yoursaas.com", // your mail server domain
+    priority: 10,
+    ttl: 3600,
+    domainId: createdDomain.id,
+  };
+
+  const allRecords = [mxRecord, ...sendgridDNS];
+
+  // Save DNS records to DB
+  await prisma.dnsRecord.createMany({
+    data: allRecords,
+  });
 
   return res.status(201).json(
     new ApiResponse(201, "Domain added and DNS records saved", {
-      domain,
-      dnsRecords,
+      domain: createdDomain,
+      dnsRecords: allRecords,
     })
   );
 });
