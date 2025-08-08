@@ -59,7 +59,7 @@ export const addDomain = asyncHandler(async (req, res) => {
   const mxRecord = {
     type: "MX",
     name: name,
-    value: "mail.yoursaas.com", // your mail server domain
+    value: "mail.primewebdev.in",
     priority: 10,
     ttl: 3600,
     domainId: createdDomain.id,
