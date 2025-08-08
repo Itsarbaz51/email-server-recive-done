@@ -15,7 +15,10 @@ export const addDomain = asyncHandler(async (req, res) => {
   }
 
   // Check for existing domain
-  const exists = await Prisma.domain.findUnique({ where: { name: name } });
+  const exists = await Prisma.domain.findFirst({
+    where: { name, adminId: userId },
+  });
+
   if (exists) throw new ApiError(409, "Domain already exists");
 
   // Step 1: Fetch SendGrid DNS records
