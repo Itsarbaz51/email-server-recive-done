@@ -30,6 +30,8 @@ export const sendEmail = asyncHandler(async (req, res) => {
     throw new ApiError(403, "Unauthorized sender or domain not verified");
   }
 
+  console.log(fromMailbox);
+  
   const fromName = fromMailbox.name || "No Name";
   console.log(fromName, "is sending an email");
 
