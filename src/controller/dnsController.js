@@ -4,6 +4,7 @@ import Prisma from "../db/db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { ApiError } from "../utils/ApiError.js";
+import { validateDomain } from "../smtp/sendgridService.js";
 
 export const addDomain = asyncHandler(async (req, res) => {
   const { name } = req.body;
@@ -102,15 +103,8 @@ export const verifyDomain = asyncHandler(async (req, res) => {
   }
 
   // ✅ Step: Also validate in SendGrid API
-  if (domain.sendgridDomainId) {
-    try {
-      const sendgridRes = await validateDomain(domain.sendgridDomainId);
-      if (!sendgridRes.valid) allValid = false;
-    } catch (err) {
-      console.error("SendGrid validation failed", err.response?.data || err);
-      allValid = false;
-    }
-  }
+  const sendgridRes = await validateDomain(domain.sendgridDomainId);
+  if (!sendgridRes.valid) allValid = false;
 
   if (allValid) {
     await Prisma.domain.update({
